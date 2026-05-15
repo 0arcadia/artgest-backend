@@ -21,7 +21,6 @@ exports.actualizarPerfil = async (req, res) => {
       if (req.body[c] !== undefined) actualizacion[c] = req.body[c];
     });
 
-    // Foto de perfil a Cloudinary
     if (req.file) {
       const result = await subirACloudinary(req.file.buffer, {
         folder: 'artgest/perfiles',
@@ -43,6 +42,31 @@ exports.actualizarPerfil = async (req, res) => {
   }
 };
 
+// PUT /api/usuarios/banner
+exports.actualizarBanner = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ mensaje: 'No se recibió imagen.' });
+    }
+
+    const result = await subirACloudinary(req.file.buffer, {
+      folder: 'artgest/banners',
+      transformation: [{ width: 1400, height: 500, crop: 'fill', gravity: 'center', quality: 'auto' }]
+    });
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.usuario._id,
+      { bannerUrl: result.secure_url },
+      { new: true }
+    ).select('-contrasenaHash');
+
+    res.json({ mensaje: 'Imagen de fondo actualizada.', bannerUrl: result.secure_url, usuario });
+  } catch (error) {
+    console.error('Error al subir banner:', error);
+    res.status(500).json({ mensaje: 'Error al subir imagen de fondo.' });
+  }
+};
+
 // GET /api/usuarios/perfil-publico/:id
 exports.perfilPublico = async (req, res) => {
   try {
@@ -50,7 +74,7 @@ exports.perfilPublico = async (req, res) => {
       _id: req.params.id,
       tipoUsuario: 'artista',
       portafolioPublico: true
-    }).select('nombre bio fotoUrl region disciplinas sitioWeb instagram formacion createdAt');
+    }).select('nombre bio fotoUrl bannerUrl region disciplinas sitioWeb instagram formacion createdAt');
 
     if (!artista) return res.status(404).json({ mensaje: 'Artista no encontrado.' });
 

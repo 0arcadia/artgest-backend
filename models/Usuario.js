@@ -33,6 +33,7 @@ const usuarioSchema = new mongoose.Schema({
   // ── Perfil artista ──
   bio: { type: String, maxlength: 500, default: '' },
   fotoUrl: { type: String, default: '' },
+  bannerUrl: { type: String, default: '' },
   region: { type: String, default: '' },
   sitioWeb: { type: String, default: '' },
   instagram: { type: String, default: '' },
