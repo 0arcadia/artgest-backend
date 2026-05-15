@@ -6,6 +6,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
+const { enviarBienvenida } = require('../config/email');
 
 // POST /api/auth/registro
 exports.registro = async (req, res) => {
@@ -59,6 +60,9 @@ exports.registro = async (req, res) => {
         fotoUrl: usuario.fotoUrl
       }
     });
+
+    // Enviar correo de bienvenida (no bloquea la respuesta)
+    enviarBienvenida(usuario.email, usuario.nombre, usuario.tipoUsuario);
   } catch (error) {
     console.error('Error en registro:', error);
     res.status(500).json({ mensaje: 'Error al crear la cuenta.' });
