@@ -1,17 +1,13 @@
 // =============================================
-// config/email.js — Servicio de correo (Resend)
+// config/email.js — Servicio de correo (Brevo API)
 // ArtGest · Proyecto de Título 2026
 // =============================================
 
-const { Resend } = require('resend');
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // Verificar configuración al iniciar
-if (process.env.RESEND_API_KEY) {
-  console.log('✓ Servicio de correo configurado (Resend)');
+if (process.env.BREVO_API_KEY) {
+  console.log('✓ Servicio de correo configurado (Brevo)');
 } else {
-  console.warn('⚠ Correo no configurado: falta RESEND_API_KEY');
+  console.warn('⚠ Correo no configurado: falta BREVO_API_KEY');
 }
 
 // ── FRONTEND URL ──
@@ -125,22 +121,30 @@ function templateBienvenida(nombre, tipoUsuario) {
 </html>`;
 }
 
-// ── ENVIAR CORREO DE BIENVENIDA ──
+// ── ENVIAR CORREO DE BIENVENIDA (Brevo HTTP API) ──
 async function enviarBienvenida(email, nombre, tipoUsuario) {
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'ArtGest <onboarding@resend.dev>',
-      to: email,
-      subject: `¡Bienvenid@ a ArtGest, ${nombre}! 🎨`,
-      html: templateBienvenida(nombre, tipoUsuario),
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender: { name: 'ArtGest', email: process.env.BREVO_SENDER || 'paulette.carrasco@alumno.iplacex.cl' },
+        to: [{ email, name: nombre }],
+        subject: `¡Bienvenid@ a ArtGest, ${nombre}! 🎨`,
+        htmlContent: templateBienvenida(nombre, tipoUsuario),
+      }),
     });
 
-    if (error) {
+    if (response.status === 201) {
+      const data = await response.json();
+      console.log(`✓ Correo de bienvenida enviado a ${email} (id: ${data.messageId})`);
+    } else {
+      const error = await response.json();
       console.error('Error enviando correo:', error);
-      return;
     }
-
-    console.log(`✓ Correo de bienvenida enviado a ${email} (id: ${data.id})`);
   } catch (error) {
     console.error('Error enviando correo:', error.message);
   }
