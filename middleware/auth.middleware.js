@@ -18,7 +18,7 @@ const auth = async (req, res, next) => {
     const token = header.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const usuario = await Usuario.findById(decoded.id).select('-contrasenaHash');
+   const usuario = await Usuario.findById(decoded.userId).select('-contrasenaHash');
     if (!usuario) {
       return res.status(401).json({ mensaje: 'Token inválido. Usuario no encontrado.' });
     }
