@@ -1,35 +1,22 @@
 // =============================================
-// config/email.js — Servicio de correo
+// config/email.js — Servicio de correo (Resend)
 // ArtGest · Proyecto de Título 2026
 // =============================================
- 
-const nodemailer = require('nodemailer');
-const dns = require('dns');
- 
-// ── FIX RENDER: Forzar IPv4 para evitar ENETUNREACH ──
-dns.setDefaultResultOrder('ipv4first');
- 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-});
- 
-// Verificar conexión al iniciar
-transporter.verify()
-  .then(() => console.log('✓ Servicio de correo configurado'))
-  .catch(err => console.warn('⚠ Correo no configurado:', err.message));
- 
+
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Verificar configuración al iniciar
+if (process.env.RESEND_API_KEY) {
+  console.log('✓ Servicio de correo configurado (Resend)');
+} else {
+  console.warn('⚠ Correo no configurado: falta RESEND_API_KEY');
+}
+
 // ── FRONTEND URL ──
 const frontendUrl = process.env.FRONTEND_URL || 'https://artgest.netlify.app';
- 
+
 // ── TEMPLATE DE BIENVENIDA ──
 function templateBienvenida(nombre, tipoUsuario) {
   const esArtista = tipoUsuario === 'artista';
@@ -37,7 +24,7 @@ function templateBienvenida(nombre, tipoUsuario) {
   const mensaje = esArtista
     ? 'Tu espacio para gestionar tu obra, postular a convocatorias y conectar con galeristas ya está listo.'
     : 'Tu espacio para publicar convocatorias, descubrir artistas y gestionar postulaciones ya está listo.';
- 
+
   const funcionalidades = esArtista
     ? `<tr><td style="padding:8px 0;font-size:15px;color:#555555;">🖼️ <strong style="color:#0A0A0A;">Inventario de obras</strong> — Cataloga tu trabajo con fichas técnicas e imágenes</td></tr>
        <tr><td style="padding:8px 0;font-size:15px;color:#555555;">📣 <strong style="color:#0A0A0A;">Convocatorias</strong> — Postula a fondos, residencias y exposiciones</td></tr>
@@ -47,16 +34,16 @@ function templateBienvenida(nombre, tipoUsuario) {
        <tr><td style="padding:8px 0;font-size:15px;color:#555555;">🔍 <strong style="color:#0A0A0A;">Descubre artistas</strong> — Explora portafolios y encuentra talento</td></tr>
        <tr><td style="padding:8px 0;font-size:15px;color:#555555;">📋 <strong style="color:#0A0A0A;">Postulaciones</strong> — Revisa y gestiona las postulaciones recibidas</td></tr>
        <tr><td style="padding:8px 0;font-size:15px;color:#555555;">⭐ <strong style="color:#0A0A0A;">Favoritos</strong> — Guarda artistas y obras que te interesen</td></tr>`;
- 
+
   return `<!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#F5F0EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
- 
+
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F0EB;padding:30px 0;">
 <tr><td align="center">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
- 
+
   <!-- HEADER -->
   <tr>
     <td style="background:#0A0A0A;padding:32px 40px;text-align:center;">
@@ -64,7 +51,7 @@ function templateBienvenida(nombre, tipoUsuario) {
       <div style="width:60px;height:3px;background:#C1440E;margin:12px auto 0;border-radius:2px;"></div>
     </td>
   </tr>
- 
+
   <!-- BIENVENIDA -->
   <tr>
     <td style="padding:40px 40px 20px;">
@@ -73,7 +60,7 @@ function templateBienvenida(nombre, tipoUsuario) {
       <p style="margin:16px 0 0;font-size:15px;color:#555555;line-height:1.6;">${mensaje}</p>
     </td>
   </tr>
- 
+
   <!-- FUNCIONALIDADES -->
   <tr>
     <td style="padding:10px 40px 30px;">
@@ -83,14 +70,14 @@ function templateBienvenida(nombre, tipoUsuario) {
       </table>
     </td>
   </tr>
- 
+
   <!-- CTA -->
   <tr>
     <td style="padding:0 40px 30px;text-align:center;">
       <a href="${frontendUrl}/login" style="display:inline-block;background:#C1440E;color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-size:15px;font-weight:600;letter-spacing:0.5px;">Ir a mi cuenta →</a>
     </td>
   </tr>
- 
+
   <!-- PRÓXIMOS PASOS -->
   <tr>
     <td style="padding:0 40px 35px;">
@@ -117,7 +104,7 @@ function templateBienvenida(nombre, tipoUsuario) {
       </table>
     </td>
   </tr>
- 
+
   <!-- FOOTER -->
   <tr>
     <td style="background:#0A0A0A;padding:30px 40px;text-align:center;">
@@ -129,29 +116,34 @@ function templateBienvenida(nombre, tipoUsuario) {
       </p>
     </td>
   </tr>
- 
+
 </table>
 </td></tr>
 </table>
- 
+
 </body>
 </html>`;
 }
- 
+
 // ── ENVIAR CORREO DE BIENVENIDA ──
 async function enviarBienvenida(email, nombre, tipoUsuario) {
   try {
-    await transporter.sendMail({
-      from: `"ArtGest" <${process.env.EMAIL_USER}>`,
+    const { data, error } = await resend.emails.send({
+      from: 'ArtGest <onboarding@resend.dev>',
       to: email,
       subject: `¡Bienvenid@ a ArtGest, ${nombre}! 🎨`,
       html: templateBienvenida(nombre, tipoUsuario),
     });
-    console.log(`✓ Correo de bienvenida enviado a ${email}`);
+
+    if (error) {
+      console.error('Error enviando correo:', error);
+      return;
+    }
+
+    console.log(`✓ Correo de bienvenida enviado a ${email} (id: ${data.id})`);
   } catch (error) {
     console.error('Error enviando correo:', error.message);
-    // No lanzar error — el registro no debe fallar por el correo
   }
 }
- 
+
 module.exports = { enviarBienvenida };
