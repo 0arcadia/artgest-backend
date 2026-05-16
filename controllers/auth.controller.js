@@ -35,7 +35,7 @@ exports.registro = async (req, res) => {
     const usuario = await Usuario.create({
       nombre,
       email,
-      contrasena: hash,
+      contrasenaHash: hash,
       tipoUsuario,
     });
 
@@ -75,12 +75,12 @@ exports.login = async (req, res) => {
       return res.status(400).json({ mensaje: 'Email y contraseña son obligatorios.' });
     }
 
-    const usuario = await Usuario.findOne({ email }).select('+contrasena');
+    const usuario = await Usuario.findOne({ email });
     if (!usuario) {
       return res.status(401).json({ mensaje: 'Credenciales incorrectas.' });
     }
 
-    const match = await bcrypt.compare(contrasena, usuario.contrasena);
+    const match = await bcrypt.compare(contrasena, usuario.contrasenaHash);
     if (!match) {
       return res.status(401).json({ mensaje: 'Credenciales incorrectas.' });
     }
