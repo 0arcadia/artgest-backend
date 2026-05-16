@@ -24,29 +24,25 @@ exports.registro = async (req, res) => {
       return res.status(400).json({ mensaje: 'Tipo de usuario no válido.' });
     }
 
-    // Verificar si ya existe
     const existe = await Usuario.findOne({ email });
     if (existe) {
-      return res.status(400).json({ mensaje: 'Ya existe una cuenta con este email.' });
+      return res.status(409).json({ mensaje: 'Ya existe una cuenta con este correo.' });
     }
 
-    // Hash de contraseña
-    const salt = await bcrypt.genSalt(10);
-    const contrasenaHash = await bcrypt.hash(contrasena, salt);
+    const salt = await bcrypt.genSalt(12);
+    const hash = await bcrypt.hash(contrasena, salt);
 
-    // Crear usuario
     const usuario = await Usuario.create({
       nombre,
       email,
-      contrasenaHash,
-      tipoUsuario
+      contrasena: hash,
+      tipoUsuario,
     });
 
-    // Generar token
     const token = jwt.sign(
-      { id: usuario._id, tipoUsuario: usuario.tipoUsuario },
+      { userId: usuario._id, tipoUsuario: usuario.tipoUsuario },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: '7d' }
     );
 
     res.status(201).json({
@@ -63,6 +59,7 @@ exports.registro = async (req, res) => {
 
     // Enviar correo de bienvenida (no bloquea la respuesta)
     enviarBienvenida(usuario.email, usuario.nombre, usuario.tipoUsuario);
+
   } catch (error) {
     console.error('Error en registro:', error);
     res.status(500).json({ mensaje: 'Error al crear la cuenta.' });
@@ -78,37 +75,31 @@ exports.login = async (req, res) => {
       return res.status(400).json({ mensaje: 'Email y contraseña son obligatorios.' });
     }
 
-    // Buscar usuario
-    const usuario = await Usuario.findOne({ email });
+    const usuario = await Usuario.findOne({ email }).select('+contrasena');
     if (!usuario) {
       return res.status(401).json({ mensaje: 'Credenciales incorrectas.' });
     }
 
-    // Verificar contraseña
-    const coincide = await bcrypt.compare(contrasena, usuario.contrasenaHash);
-    if (!coincide) {
+    const match = await bcrypt.compare(contrasena, usuario.contrasena);
+    if (!match) {
       return res.status(401).json({ mensaje: 'Credenciales incorrectas.' });
     }
 
-    // Generar token
     const token = jwt.sign(
-      { id: usuario._id, tipoUsuario: usuario.tipoUsuario },
+      { userId: usuario._id, tipoUsuario: usuario.tipoUsuario },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: '7d' }
     );
 
     res.json({
-      mensaje: 'Inicio de sesión exitoso.',
+      mensaje: 'Sesión iniciada.',
       token,
       usuario: {
         id: usuario._id,
         nombre: usuario.nombre,
         email: usuario.email,
         tipoUsuario: usuario.tipoUsuario,
-        fotoUrl: usuario.fotoUrl,
-        bio: usuario.bio,
-        region: usuario.region,
-        disciplinas: usuario.disciplinas
+        fotoUrl: usuario.fotoUrl
       }
     });
   } catch (error) {
@@ -123,5 +114,27 @@ exports.me = async (req, res) => {
     res.json({ usuario: req.usuario });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener perfil.' });
+  }
+};
+
+// POST /api/auth/reenviar-bienvenida — Reenviar correo de bienvenida
+exports.reenviarBienvenida = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ mensaje: 'El email es obligatorio.' });
+    }
+
+    const usuario = await Usuario.findOne({ email });
+    if (!usuario) {
+      return res.status(404).json({ mensaje: 'No se encontró un usuario con ese correo.' });
+    }
+
+    await enviarBienvenida(usuario.email, usuario.nombre, usuario.tipoUsuario);
+    res.json({ mensaje: `Correo de bienvenida reenviado a ${email}` });
+  } catch (error) {
+    console.error('Error al reenviar correo:', error);
+    res.status(500).json({ mensaje: 'Error al reenviar el correo.' });
   }
 };
