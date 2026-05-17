@@ -5,6 +5,7 @@
 
 const Usuario = require('../models/Usuario');
 const Obra = require('../models/Obra');
+const Venta = require('../models/Venta');
 const { subirACloudinary } = require('../config/cloudinary');
 
 // PUT /api/usuarios/perfil
@@ -118,5 +119,26 @@ exports.listarFavoritos = async (req, res) => {
     res.json({ favoritos: galerista.artistasFavoritos });
   } catch (error) {
     res.status(500).json({ mensaje: 'Error al obtener favoritos.' });
+  }
+};
+
+// GET /api/usuarios/artistas — listar todos los artistas (para galeristas)
+exports.listarArtistas = async (req, res) => {
+  try {
+    const artistas = await Usuario.find({ tipoUsuario: 'artista' })
+      .select('nombre fotoUrl disciplinas region bio')
+      .lean();
+
+    // Para cada artista, contar obras y ventas
+    const artistasConStats = await Promise.all(artistas.map(async (a) => {
+      const totalObras = await Obra.countDocuments({ artistaId: a._id });
+      const totalVentas = await Venta.countDocuments({ artistaId: a._id });
+      return { ...a, totalObras, totalVentas };
+    }));
+
+    res.json({ artistas: artistasConStats });
+  } catch (error) {
+    console.error('Error listando artistas:', error);
+    res.status(500).json({ mensaje: 'Error al obtener artistas.' });
   }
 };
